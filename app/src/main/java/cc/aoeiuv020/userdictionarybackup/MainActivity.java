@@ -1,5 +1,6 @@
 package cc.aoeiuv020.userdictionarybackup;
 
+import android.Manifest;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -8,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.provider.UserDictionary;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -99,6 +101,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void importBackupFile() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                0);
         String sPath = ePath.getText().toString();
         try {
             InputStream input = new FileInputStream(sPath);
@@ -123,6 +128,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void exportBackupFile() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                0);
         File fExport = new File(ePath.getText().toString());
         //如果目标是目录，导出到目录下，
         if (fExport.exists() && fExport.isDirectory())
