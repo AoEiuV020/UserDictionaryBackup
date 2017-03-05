@@ -127,16 +127,12 @@ public class MainActivity extends AppCompatActivity {
         //如果目标是目录，导出到目录下，
         if (fExport.exists() && fExport.isDirectory())
             fExport = new File(fExport, BACKUP_TXT);
-        try {
-            InputStream input = openFileInput(BACKUP_TXT);
-            OutputStream output = new FileOutputStream(fExport);
+        try (InputStream input = openFileInput(BACKUP_TXT); OutputStream output = new FileOutputStream(fExport)) {
             byte[] buf = new byte[1024];
             int length;
             while ((length = input.read(buf)) > 0) {
                 output.write(buf, 0, length);
             }
-            input.close();
-            output.close();
             Toast.makeText(this, "导出成功", Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             Log.e(TAG, "exportBackupFile: ", e);
@@ -151,7 +147,9 @@ public class MainActivity extends AppCompatActivity {
                 null //默认排序，
         );
         if (cursor == null) {
-            throw new RuntimeException("查询失败");
+            error("查询失败");
+            Toast.makeText(this, "查询失败", Toast.LENGTH_SHORT).show();
+            return;
         }
         JSONArray jArray = new JSONArray();
         JSONObject jObject;
@@ -161,21 +159,31 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     jObject.put(projection[i], cursor.getString(i));
                 } catch (JSONException e) {
-                    throw new RuntimeException(e);
+                    //不可能到达，
+                    error(e);
+                    return;
                 }
             }
             Log.d(TAG, "jObject: " + jObject.toString());
             jArray.put(jObject);
         }
         cursor.close();
-        try {
-            OutputStream output = openFileOutput(BACKUP_TXT, Context.MODE_PRIVATE);
+        try (OutputStream output = openFileOutput(BACKUP_TXT, Context.MODE_PRIVATE)) {
             output.write(jArray.toString().getBytes());
-            output.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            error(e);
+            Toast.makeText(this, "保存失败", Toast.LENGTH_SHORT).show();
+            return;
         }
         Toast.makeText(this, "保存成功 " + jArray.length(), Toast.LENGTH_SHORT).show();
+    }
+
+    private void error(String message) {
+        Log.e(TAG, "error: ", new Exception(message));
+    }
+
+    private void error(Throwable e) {
+        Log.e(TAG, "error: ", e);
     }
 
     private void loadUserDictionary() {
@@ -185,7 +193,9 @@ public class MainActivity extends AppCompatActivity {
                 null //默认排序，
         );
         if (cursor == null) {
-            throw new RuntimeException("查询失败");
+            error("查询失败");
+            Toast.makeText(this, "查询失败", Toast.LENGTH_SHORT).show();
+            return;
         }
         Set<String> wordSet = new HashSet<>();
         while (cursor.moveToNext()) {
@@ -193,8 +203,7 @@ public class MainActivity extends AppCompatActivity {
         }
         cursor.close();
         JSONArray jArray;
-        try {
-            InputStreamReader reader = new InputStreamReader(openFileInput(BACKUP_TXT));
+        try (InputStreamReader reader = new InputStreamReader(openFileInput(BACKUP_TXT))) {
             char[] buf = new char[1024];
             int length;
             StringBuilder sb = new StringBuilder();
@@ -203,30 +212,35 @@ public class MainActivity extends AppCompatActivity {
             }
             jArray = new JSONArray(sb.toString());
         } catch (IOException | JSONException e) {
-            throw new RuntimeException(e);
+            error(e);
+            Toast.makeText(this, "读取失败", Toast.LENGTH_SHORT).show();
+            return;
         }
         int count = 0;
         for (int i = 0; i < jArray.length(); i++) {
+            JSONObject jObject;
             try {
-                JSONObject jObject = jArray.getJSONObject(i);
+                jObject = jArray.getJSONObject(i);
                 if (jObject.isNull(UserDictionary.Words.FREQUENCY))
                     jObject.put(UserDictionary.Words.FREQUENCY, 250);//默认词频250,
                 Log.d(TAG, "loadUserDictionary: " + jObject.toString());
-                if (wordSet.contains(jObject.optString(UserDictionary.Words.WORD))) {
-                    continue;//已经有了就不继续插入了，
-                }
-                ContentValues word = new ContentValues(projection.length);
-                for (int j = 0; j < projection.length; j++) {
-                    //默认locale要为null,不能为空"",
-                    word.put(projection[j], jObject.optString(projection[j], null));
-                }
-                //有个UserDictionary.Words.addWord方法，
-                //但是不方便，上面一个循环要展开，
-                getContentResolver().insert(UserDictionary.Words.CONTENT_URI, word);
-                count++;
             } catch (JSONException e) {
-                throw new RuntimeException(e);
+                error(e);
+                Toast.makeText(this, "备份文件错误", Toast.LENGTH_SHORT).show();
+                return;
             }
+            if (wordSet.contains(jObject.optString(UserDictionary.Words.WORD))) {
+                continue;//已经有了就不继续插入了，
+            }
+            ContentValues word = new ContentValues(projection.length);
+            for (String aProjection : projection) {
+                //默认locale要为null,不能为空"",
+                word.put(aProjection, jObject.optString(aProjection, null));
+            }
+            //有个UserDictionary.Words.addWord方法，
+            //但是不方便，上面一个循环要展开，
+            getContentResolver().insert(UserDictionary.Words.CONTENT_URI, word);
+            count++;
         }
         Toast.makeText(this, String.format(Locale.CHINA, "读取成功 %d/%d", count, jArray.length()),
                 Toast.LENGTH_SHORT)
