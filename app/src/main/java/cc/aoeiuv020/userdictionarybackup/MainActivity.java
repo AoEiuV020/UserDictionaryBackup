@@ -229,8 +229,6 @@ public class MainActivity extends AppCompatActivity {
             JSONObject jObject;
             try {
                 jObject = jArray.getJSONObject(i);
-                if (jObject.isNull(UserDictionary.Words.FREQUENCY))
-                    jObject.put(UserDictionary.Words.FREQUENCY, 250);//默认词频250,
                 Log.d(TAG, "loadUserDictionary: " + jObject.toString());
             } catch (JSONException e) {
                 error(e);
@@ -245,6 +243,8 @@ public class MainActivity extends AppCompatActivity {
                 //默认locale要为null,不能为空"",
                 word.put(aProjection, jObject.optString(aProjection, null));
             }
+            //词频统一250,这也是安卓手动添加时默认的，
+            word.put(UserDictionary.Words.FREQUENCY,250);
             //有个UserDictionary.Words.addWord方法，
             //但是不方便，上面一个循环要展开，
             getContentResolver().insert(UserDictionary.Words.CONTENT_URI, word);
