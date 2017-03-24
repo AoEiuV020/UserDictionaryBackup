@@ -1,6 +1,7 @@
 package cc.aoeiuv020.userdictionarybackup;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +13,6 @@ import android.provider.UserDictionary;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
@@ -39,7 +39,7 @@ import java.util.Set;
  * bExport: 导出备份文件到指定位置，
  * bImport: 导入指定文件到私有文件，
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
     private static final String BACKUP_TXT = "backup.txt";
     private Coder coder = new JsonArrayInJsonArray();
