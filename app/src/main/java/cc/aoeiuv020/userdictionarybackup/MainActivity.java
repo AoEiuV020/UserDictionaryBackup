@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.provider.UserDictionary;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -41,6 +43,7 @@ import java.util.Set;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String BACKUP_TXT = "backup.txt";
+    private Coder coder = new JsonArrayInJsonArray();
     private Button bSave;
     private Button bLoad;
     private Button bExport;
@@ -160,20 +163,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         JSONArray jArray = new JSONArray();
-        JSONObject jObject;
         while (cursor.moveToNext()) {
-            jObject = new JSONObject();
-            for (int i = 0; i < projection.length; i++) {
-                try {
-                    jObject.put(projection[i], cursor.getString(i));
-                } catch (JSONException e) {
-                    //不可能到达，
-                    error(e);
-                    return;
-                }
-            }
-            Log.d(TAG, "jObject: " + jObject.toString());
-            jArray.put(jObject);
+            Object wordObject = coder.encode(cursor);
+            if (wordObject == null) return;
+            Log.d(TAG, "jObject: " + wordObject.toString());
+            jArray.put(wordObject);
         }
         cursor.close();
         try (OutputStream output = openFileOutput(BACKUP_TXT, Context.MODE_PRIVATE)) {
@@ -226,32 +220,92 @@ public class MainActivity extends AppCompatActivity {
         }
         int count = 0;
         for (int i = 0; i < jArray.length(); i++) {
-            JSONObject jObject;
-            try {
-                jObject = jArray.getJSONObject(i);
-                Log.d(TAG, "loadUserDictionary: " + jObject.toString());
-            } catch (JSONException e) {
+            Object wordObject;
+            wordObject = jArray.opt(i);
+            Log.d(TAG, "loadUserDictionary: " + wordObject.toString());
+            ContentValues contentValues;
+            try{
+                //noinspection unchecked
+                contentValues = coder.decode(wordObject);
+            }catch(ClassCastException e){
                 error(e);
                 Toast.makeText(this, "备份文件错误", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (wordSet.contains(jObject.optString(UserDictionary.Words.WORD))) {
+            if (wordSet.contains(contentValues.getAsString(UserDictionary.Words.WORD))) {
                 continue;//已经有了就不继续插入了，
             }
-            ContentValues word = new ContentValues(projection.length);
-            for (String aProjection : projection) {
-                //默认locale要为null,不能为空"",
-                word.put(aProjection, jObject.optString(aProjection, null));
-            }
             //词频统一250,这也是安卓手动添加时默认的，
-            word.put(UserDictionary.Words.FREQUENCY,250);
+            contentValues.put(UserDictionary.Words.FREQUENCY, 250);
             //有个UserDictionary.Words.addWord方法，
             //但是不方便，上面一个循环要展开，
-            getContentResolver().insert(UserDictionary.Words.CONTENT_URI, word);
+            getContentResolver().insert(UserDictionary.Words.CONTENT_URI, contentValues);
             count++;
         }
         Toast.makeText(this, String.format(Locale.CHINA, "读取成功 %d/%d", count, jArray.length()),
                 Toast.LENGTH_SHORT)
                 .show();
+    }
+
+    private interface Coder<T> {
+        @Nullable
+        T encode(Cursor cursor);
+
+        @NonNull
+        ContentValues decode(T t);
+    }
+
+    @SuppressWarnings("unused")
+    private class JsonObjectInJsonArray implements Coder<JSONObject> {
+        @Nullable
+        @Override
+        public JSONObject encode(Cursor cursor) {
+            JSONObject jObject = new JSONObject();
+            for (int i = 0; i < projection.length; i++) {
+                try {
+                    jObject.put(projection[i], cursor.getString(i));
+                } catch (JSONException e) {
+                    //不可能到达，
+                    error(e);
+                    return null;
+                }
+            }
+            return jObject;
+        }
+
+        @NonNull
+        @Override
+        public ContentValues decode(JSONObject jsonObject) {
+            ContentValues contentValues = new ContentValues(projection.length);
+            for (String aProjection : projection) {
+                //默认locale要为null,不能为空"",
+                contentValues.put(aProjection, jsonObject.optString(aProjection, null));
+            }
+            return contentValues;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private class JsonArrayInJsonArray implements Coder<JSONArray> {
+        @Nullable
+        @Override
+        public JSONArray encode(Cursor cursor) {
+            JSONArray jArray = new JSONArray();
+            for (int i = 0; i < cursor.getColumnCount(); i++) {
+                jArray.put(cursor.getString(i));
+            }
+            return jArray;
+        }
+
+        @NonNull
+        @Override
+        public ContentValues decode(JSONArray jsonArray) {
+            ContentValues contentValues = new ContentValues(projection.length);
+            for (int i = 0; i < projection.length; i++) {
+                //默认locale要为null,不能为空"",
+                contentValues.put(projection[i], jsonArray.optString(i, null));
+            }
+            return contentValues;
+        }
     }
 }
