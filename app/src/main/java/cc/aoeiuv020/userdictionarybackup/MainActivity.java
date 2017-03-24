@@ -118,7 +118,6 @@ public class MainActivity extends Activity {
         );
         if (cursor == null) {
             error("查询失败");
-            Toast.makeText(this, "查询失败", Toast.LENGTH_SHORT).show();
             return;
         }
         JSONArray jArray = new JSONArray();
@@ -132,19 +131,19 @@ public class MainActivity extends Activity {
         try (OutputStream output = openFileOutput(BACKUP_TXT, Context.MODE_PRIVATE)) {
             output.write(jArray.toString().getBytes());
         } catch (IOException e) {
-            error(e);
-            Toast.makeText(this, "保存失败", Toast.LENGTH_SHORT).show();
+            error("保存失败", e);
             return;
         }
         Toast.makeText(this, "保存成功 " + jArray.length(), Toast.LENGTH_SHORT).show();
     }
 
     private void error(String message) {
-        Log.e(TAG, "error: ", new Exception(message));
+        error(message, new Exception());
     }
 
-    private void error(Throwable e) {
-        Log.e(TAG, "error: ", e);
+    private void error(String message, Throwable e) {
+        Log.e(TAG, message, e);
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     public void loadUserDictionary(View v) {
@@ -155,7 +154,6 @@ public class MainActivity extends Activity {
         );
         if (cursor == null) {
             error("查询失败");
-            Toast.makeText(this, "查询失败", Toast.LENGTH_SHORT).show();
             return;
         }
         Set<String> wordSet = new HashSet<>();
@@ -173,8 +171,7 @@ public class MainActivity extends Activity {
             }
             jArray = new JSONArray(sb.toString());
         } catch (IOException | JSONException e) {
-            error(e);
-            Toast.makeText(this, "读取失败", Toast.LENGTH_SHORT).show();
+            error("读取失败", e);
             return;
         }
         int count = 0;
@@ -187,8 +184,7 @@ public class MainActivity extends Activity {
                 //noinspection unchecked
                 contentValues = coder.decode(wordObject);
             } catch (ClassCastException e) {
-                error(e);
-                Toast.makeText(this, "备份文件错误", Toast.LENGTH_SHORT).show();
+                error("备份文件格式错误", e);
                 return;
             }
             if (wordSet.contains(contentValues.getAsString(UserDictionary.Words.WORD))) {
@@ -225,7 +221,7 @@ public class MainActivity extends Activity {
                     jObject.put(projection[i], cursor.getString(i));
                 } catch (JSONException e) {
                     //不可能到达，
-                    error(e);
+                    error("不可能出现的错误", e);
                     return null;
                 }
             }
