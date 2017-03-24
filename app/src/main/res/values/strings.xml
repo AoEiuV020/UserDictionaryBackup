@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">UserDictionaryBackup</string>
-    <string name="save">Save</string>
-    <string name="load">Load</string>
+    <string name="save">保存</string>
+    <string name="load">读取</string>
+    <string name="hint_export_file_path">/export/file/path</string>
+    <string name="export">导出</string>
+    <string name="enable_input_method">启用输入法</string>
+    <string name="import_">导入</string>
 </resources>

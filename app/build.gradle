@@ -1,8 +1,8 @@
 apply plugin: 'com.android.application'
 
-def keystorePropertiesFile = project.file("keystore.properties")
-def keystoreProperties = new Properties()
-keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+def localPropertiesFile = project.rootProject.file('local.properties')
+def localProperties = new Properties()
+localProperties.load(new FileInputStream(localPropertiesFile))
 
 android {
     lintOptions {
@@ -10,10 +10,12 @@ android {
     }
     signingConfigs {
         config {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
+            keyAlias localProperties['keyAlias']
+            keyPassword localProperties['keyPassword']
+            storeFile localProperties['storeFile'] != null ?
+                    file('.signing/' + localProperties['storeFile']) :
+                    null
+            storePassword localProperties['storePassword']
         }
     }
     compileSdkVersion 25
@@ -22,15 +24,24 @@ android {
         applicationId "cc.aoeiuv020.userdictionarybackup"
         minSdkVersion 22
         targetSdkVersion 25
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.config
+            if (localProperties['storeFile'] != null)
+                signingConfig signingConfigs.config
+            applicationVariants.all { variant ->
+                variant.outputs.each { output ->
+                    if (output.name == 'release' && variant.signingReady)
+                        output.outputFile = new File(output.outputFile.parent,
+                                "${project.rootProject.name}-${variant.versionName}.apk"
+                        )
+                }
+            }
         }
     }
 }
@@ -40,7 +51,7 @@ dependencies {
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:25.2.0'
-    compile 'com.android.support.constraint:constraint-layout:1.0.1'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
     testCompile 'junit:junit:4.12'
+    compile 'com.android.support:support-v4:25.3.0'
 }
