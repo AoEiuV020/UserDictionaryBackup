@@ -2,4 +2,8 @@
     <string name="app_name">UserDictionaryBackup</string>
     <string name="save">Save</string>
     <string name="load">Load</string>
+    <string name="hint_export_file_path">/export/file/path</string>
+    <string name="export">export</string>
+    <string name="enable">enable</string>
+    <string name="import_">import</string>
 </resources>
