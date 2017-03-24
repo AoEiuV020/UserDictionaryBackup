@@ -15,7 +15,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -44,11 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String BACKUP_TXT = "backup.txt";
     private Coder coder = new JsonArrayInJsonArray();
-    private Button bSave;
-    private Button bLoad;
-    private Button bExport;
-    private Button bImport;
-    private Button bEnable;
     private EditText ePath;
     private String[] projection = {
             UserDictionary.Words.LOCALE,
@@ -63,47 +57,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bSave = (Button) findViewById(R.id.iSave);
-        bLoad = (Button) findViewById(R.id.iLoad);
-        bExport = (Button) findViewById(R.id.iExport);
-        bEnable = (Button) findViewById(R.id.iEnable);
-        bImport = (Button) findViewById(R.id.iImport);
         ePath = (EditText) findViewById(R.id.iPath);
         ePath.setText(new File(Environment.getExternalStorageDirectory(), BACKUP_TXT)
                 .getAbsolutePath());
-        bSave.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                saveUserDictionary();
-            }
-        });
-        bLoad.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loadUserDictionary();
-            }
-        });
-        bExport.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                exportBackupFile();
-            }
-        });
-        bImport.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                importBackupFile();
-            }
-        });
-        bEnable.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                enableUserDictionaryIME();
-            }
-        });
     }
 
-    private void importBackupFile() {
+    public void importBackupFile(View v) {
         ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
                 0);
@@ -125,12 +84,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void enableUserDictionaryIME() {
+    public void enableUserDictionaryIME(View v) {
         Intent intent = new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS);
         startActivity(intent);
     }
 
-    private void exportBackupFile() {
+    public void exportBackupFile(View v) {
         ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 0);
@@ -151,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void saveUserDictionary() {
+    public void saveUserDictionary(View v) {
         Cursor cursor = getContentResolver().query(UserDictionary.Words.CONTENT_URI,
                 projection, //返回这些列，
                 null, null, //返回所有行，
@@ -188,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
         Log.e(TAG, "error: ", e);
     }
 
-    private void loadUserDictionary() {
+    public void loadUserDictionary(View v) {
         Cursor cursor = getContentResolver().query(UserDictionary.Words.CONTENT_URI,
                 new String[]{UserDictionary.Words.WORD}, //只要word列，
                 null, null, //返回所有行，
@@ -224,10 +183,10 @@ public class MainActivity extends AppCompatActivity {
             wordObject = jArray.opt(i);
             Log.d(TAG, "loadUserDictionary: " + wordObject.toString());
             ContentValues contentValues;
-            try{
+            try {
                 //noinspection unchecked
                 contentValues = coder.decode(wordObject);
-            }catch(ClassCastException e){
+            } catch (ClassCastException e) {
                 error(e);
                 Toast.makeText(this, "备份文件错误", Toast.LENGTH_SHORT).show();
                 return;
