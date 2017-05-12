@@ -10,17 +10,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.provider.UserDictionary;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -42,8 +40,10 @@ import java.util.Set;
 public class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
     private static final String BACKUP_TXT = "backup.txt";
-    private Coder coder = new JsonArrayInJsonArray();
     private EditText ePath;
+    private Gson gson = new GsonBuilder()
+//            .setPrettyPrinting()
+            .create();
     private String[] projection = {
             UserDictionary.Words.LOCALE,
             UserDictionary.Words.SHORTCUT,
@@ -120,21 +120,23 @@ public class MainActivity extends Activity {
             error("查询失败");
             return;
         }
-        JSONArray jArray = new JSONArray();
+        Backup backup = new Backup();
         while (cursor.moveToNext()) {
-            Object wordObject = coder.encode(cursor);
-            if (wordObject == null) return;
-            Log.d(TAG, "jObject: " + wordObject.toString());
-            jArray.put(wordObject);
+            Words words = new Words();
+            for (int i = 0; i < cursor.getColumnCount(); i++) {
+                words.add(cursor.getString(i));
+            }
+            Log.d(TAG, "words: " + words.toString());
+            backup.add(words);
         }
         cursor.close();
         try (OutputStream output = openFileOutput(BACKUP_TXT, Context.MODE_PRIVATE)) {
-            output.write(jArray.toString().getBytes());
+            output.write(gson.toJson(backup).getBytes());
         } catch (IOException e) {
             error("保存失败", e);
             return;
         }
-        Toast.makeText(this, "保存成功 " + jArray.length(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "保存成功 " + backup.size(), Toast.LENGTH_SHORT).show();
     }
 
     private void error(String message) {
@@ -161,7 +163,7 @@ public class MainActivity extends Activity {
             wordSet.add(cursor.getString(0));
         }
         cursor.close();
-        JSONArray jArray;
+        Backup backup;
         try (InputStreamReader reader = new InputStreamReader(openFileInput(BACKUP_TXT))) {
             char[] buf = new char[1024];
             int length;
@@ -169,20 +171,21 @@ public class MainActivity extends Activity {
             while ((length = reader.read(buf)) > 0) {
                 sb.append(buf, 0, length);
             }
-            jArray = new JSONArray(sb.toString());
-        } catch (IOException | JSONException e) {
+            backup = gson.fromJson(sb.toString(), Backup.class);
+        } catch (IOException e) {
             error("读取失败", e);
             return;
         }
         int count = 0;
-        for (int i = 0; i < jArray.length(); i++) {
-            Object wordObject;
-            wordObject = jArray.opt(i);
-            Log.d(TAG, "loadUserDictionary: " + wordObject.toString());
+        for (Words words : backup) {
+            Log.d(TAG, "loadUserDictionary: " + words.toString());
             ContentValues contentValues;
             try {
-                //noinspection unchecked
-                contentValues = coder.decode(wordObject);
+                contentValues = new ContentValues(projection.length);
+                for (int i = 0; i < projection.length; i++) {
+                    //默认locale要为null,不能为空"",
+                    contentValues.put(projection[i], words.get(i));
+                }
             } catch (ClassCastException e) {
                 error("备份文件格式错误", e);
                 return;
@@ -197,70 +200,16 @@ public class MainActivity extends Activity {
             getContentResolver().insert(UserDictionary.Words.CONTENT_URI, contentValues);
             count++;
         }
-        Toast.makeText(this, String.format(Locale.CHINA, "读取成功 %d/%d", count, jArray.length()),
+        Toast.makeText(this, String.format(Locale.CHINA, "读取成功 %d/%d", count, backup.size()),
                 Toast.LENGTH_SHORT)
                 .show();
     }
 
-    private interface Coder<T> {
-        @Nullable
-        T encode(Cursor cursor);
-
-        @NonNull
-        ContentValues decode(T t);
+    @SuppressWarnings("WeakerAccess")
+    public static class Words extends ArrayList<String> {
     }
 
-    @SuppressWarnings("unused")
-    private class JsonObjectInJsonArray implements Coder<JSONObject> {
-        @Nullable
-        @Override
-        public JSONObject encode(Cursor cursor) {
-            JSONObject jObject = new JSONObject();
-            for (int i = 0; i < projection.length; i++) {
-                try {
-                    jObject.put(projection[i], cursor.getString(i));
-                } catch (JSONException e) {
-                    //不可能到达，
-                    error("不可能出现的错误", e);
-                    return null;
-                }
-            }
-            return jObject;
-        }
-
-        @NonNull
-        @Override
-        public ContentValues decode(JSONObject jsonObject) {
-            ContentValues contentValues = new ContentValues(projection.length);
-            for (String aProjection : projection) {
-                //默认locale要为null,不能为空"",
-                contentValues.put(aProjection, jsonObject.optString(aProjection, null));
-            }
-            return contentValues;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private class JsonArrayInJsonArray implements Coder<JSONArray> {
-        @Nullable
-        @Override
-        public JSONArray encode(Cursor cursor) {
-            JSONArray jArray = new JSONArray();
-            for (int i = 0; i < cursor.getColumnCount(); i++) {
-                jArray.put(cursor.getString(i));
-            }
-            return jArray;
-        }
-
-        @NonNull
-        @Override
-        public ContentValues decode(JSONArray jsonArray) {
-            ContentValues contentValues = new ContentValues(projection.length);
-            for (int i = 0; i < projection.length; i++) {
-                //默认locale要为null,不能为空"",
-                contentValues.put(projection[i], jsonArray.optString(i, null));
-            }
-            return contentValues;
-        }
+    @SuppressWarnings("WeakerAccess")
+    public static class Backup extends ArrayList<Words> {
     }
 }
